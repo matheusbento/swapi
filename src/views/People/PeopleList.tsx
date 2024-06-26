@@ -20,7 +20,7 @@ export const PeopleList = () => {
       <Else>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {people?.map((person, index) => (
-            <Person person={person} />
+            <Person key={index} person={person} />
           ))}
         </div>
       </Else>

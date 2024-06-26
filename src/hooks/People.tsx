@@ -8,6 +8,8 @@ import {
   useCallback,
 } from "react";
 
+import { uniqBy } from "lodash";
+
 export type PeopleHookType = {
   fetchPeopleHandler: () => Promise<void>;
   people: PersonType[] | null;
@@ -56,20 +58,19 @@ const PeopleProvider = ({ children }: PeopleProviderProps) => {
     return allPeopleWithBrownHair;
   }, []);
 
-  const fetchHomeworlds = useCallback(async (people: any[]) => {
-    const peopleWithHomeworlds = await Promise.all(
-      people.map(async (person: any) => {
-        const homeworldResponse = await fetch(person.homeworld);
+  const fetchHomeworlds = useCallback(async (homeworldUrls: any[]) => {
+    const homeworlds = await Promise.all(
+      homeworldUrls.map(async (url: any) => {
+        const homeworldResponse = await fetch(url);
         const { name } = await homeworldResponse.json();
         return {
-          name: person.name,
-          eye_color: person.eye_color,
-          homeworld: name,
+          url: url,
+          name: name,
         };
       })
     );
 
-    return peopleWithHomeworlds;
+    return homeworlds as { url: string; name: string }[];
   }, []);
 
   const fetchPeopleHandler = useCallback(async () => {
@@ -77,7 +78,22 @@ const PeopleProvider = ({ children }: PeopleProviderProps) => {
       setIsLoadingPeople(true);
 
       const peopleWithBrownHair = await fetchPeopleWithBrownHair();
-      const peopleWithHomeworlds = await fetchHomeworlds(peopleWithBrownHair);
+
+      const homeworldsUrls = uniqBy(peopleWithBrownHair, "homeworld").map(
+        (person: any) => person.homeworld
+      );
+
+      const homeworlds = await fetchHomeworlds(homeworldsUrls);
+
+      const peopleWithHomeworlds = peopleWithBrownHair.map((person: any) => {
+        const homeworld = homeworlds.find(
+          (homeworld: any) => homeworld.url === person.homeworld
+        );
+        return {
+          ...person,
+          homeworld: homeworld?.name,
+        };
+      });
 
       setPeople(peopleWithHomeworlds);
     } catch (e) {
