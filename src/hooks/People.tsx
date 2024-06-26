@@ -1,4 +1,3 @@
-import { PersonType } from "@/types/PersonType";
 import {
   createContext,
   useContext,
@@ -7,7 +6,7 @@ import {
   ReactNode,
   useCallback,
 } from "react";
-
+import { PersonType } from "@/types/PersonType";
 import { uniqBy } from "lodash";
 
 export type PeopleHookType = {
@@ -23,7 +22,6 @@ const usePeople = () => {
   if (!context) {
     throw new Error("usePeople must be within PeopleProvider");
   }
-
   return context;
 };
 
@@ -35,7 +33,9 @@ const PeopleProvider = ({ children }: PeopleProviderProps) => {
   const [isLoadingPeople, setIsLoadingPeople] = useState(false);
   const [people, setPeople] = useState<PersonType[] | null>(null);
 
-  const fetchPeopleWithBrownHair = useCallback(async () => {
+  const fetchPeopleWithBrownHair = useCallback(async (): Promise<
+    PersonType[]
+  > => {
     let allPeopleWithBrownHair: PersonType[] = [];
     let url = "https://swapi.dev/api/people";
 
@@ -44,7 +44,7 @@ const PeopleProvider = ({ children }: PeopleProviderProps) => {
       const data = await response.json();
       const { results, next } = data;
 
-      const peopleWithBrownHair = results.filter((person: any) =>
+      const peopleWithBrownHair = results.filter((person: PersonType) =>
         person.hair_color.includes("brown")
       );
 
@@ -58,9 +58,9 @@ const PeopleProvider = ({ children }: PeopleProviderProps) => {
     return allPeopleWithBrownHair;
   }, []);
 
-  const fetchHomeworlds = useCallback(async (homeworldUrls: any[]) => {
+  const fetchHomeworlds = useCallback(async (homeworldUrls: string[]) => {
     const homeworlds = await Promise.all(
-      homeworldUrls.map(async (url: any) => {
+      homeworldUrls.map(async (url: string) => {
         const homeworldResponse = await fetch(url);
         const { name } = await homeworldResponse.json();
         return {
@@ -78,22 +78,24 @@ const PeopleProvider = ({ children }: PeopleProviderProps) => {
       setIsLoadingPeople(true);
 
       const peopleWithBrownHair = await fetchPeopleWithBrownHair();
-
       const homeworldsUrls = uniqBy(peopleWithBrownHair, "homeworld").map(
-        (person: any) => person.homeworld
+        (person: PersonType) => person.homeworld
       );
 
       const homeworlds = await fetchHomeworlds(homeworldsUrls);
 
-      const peopleWithHomeworlds = peopleWithBrownHair.map((person: any) => {
-        const homeworld = homeworlds.find(
-          (homeworld: any) => homeworld.url === person.homeworld
-        );
-        return {
-          ...person,
-          homeworld: homeworld?.name,
-        };
-      });
+      const peopleWithHomeworlds = peopleWithBrownHair.map(
+        (person: PersonType) => {
+          const homeworld = homeworlds.find(
+            (homeworld: { url: string; name: string }) =>
+              homeworld.url === person.homeworld
+          );
+          return {
+            ...person,
+            homeworld: homeworld?.name || "Unknown",
+          };
+        }
+      );
 
       setPeople(peopleWithHomeworlds);
     } catch (e) {
@@ -101,7 +103,7 @@ const PeopleProvider = ({ children }: PeopleProviderProps) => {
     } finally {
       setIsLoadingPeople(false);
     }
-  }, []);
+  }, [fetchPeopleWithBrownHair, fetchHomeworlds]);
 
   const providerValue = useMemo(
     () => ({
@@ -109,7 +111,7 @@ const PeopleProvider = ({ children }: PeopleProviderProps) => {
       people,
       fetchPeopleHandler,
     }),
-    [fetchPeopleHandler, people, isLoadingPeople]
+    [isLoadingPeople, people, fetchPeopleHandler]
   );
 
   return (
